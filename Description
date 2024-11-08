@@ -1,0 +1,44 @@
+I’m not a programmer by any means... this is just one of my ideas, and ChatGPT helped me write the code.
+
+The provided code creates a media player with subtitles, where subtitles are linked to their corresponding media files (such as `.mp3`, `.mp4`, `.ogg`, etc.). The media player and subtitles are displayed on a webpage, with interactive features such as hover-to-play functionality for each subtitle. Here's an explanation of how the code works:
+Key Sections of the Code
+#1. PHP Backend
+The PHP part handles the following:
+- Directory Scanning: 
+  - It scans the current directory (`$directory`) for media files (e.g., `.mp3`, `.mp4`, `.ogg`, `.webm`) and subtitle files (`.srt`).
+  - It pairs media files with their corresponding subtitle files based on matching filenames. For example, if there is a media file `movie.mp4`, it expects a subtitle file `movie.srt` in the same directory.
+- Loading Subtitles:
+  - The `loadSubtitles()` function loads subtitles from `.srt` files. The function parses the subtitle file, extracting the start and end times (in seconds) of each subtitle along with its text content.
+#2. Frontend (HTML + JavaScript)
+- Media Display:
+  - For each media file found, a `<video>` tag is created to display the media (if it’s a video file), or it could be an `<audio>` tag if it's an audio file.
+  - Each subtitle from the `.srt` file is displayed as clickable text using a `<span>` tag. Each subtitle is associated with `data-start` and `data-end` attributes which define the start and end time for the subtitle in the media.
+- Subtitle Hover Effects:
+  - Hover-to-play: When you hover over a subtitle, the `onmouseover` event triggers the `playMediaAt()` function, which:
+    - Sets the media playback to the start time (`data-start`) of the hovered subtitle.
+    - Starts playing the media.
+    - Stops the media once the subtitle's duration has passed, based on the `data-end` time.
+  - The `onmouseout` event stops the media from playing when the mouse leaves the subtitle.
+- Day/Night Mode Toggle:
+  - The page supports both day and night modes. The `toggleDayNight()` function allows switching between these two modes by toggling a `night-mode` class on the `<body>`.
+  - This changes the background color and text color to make the interface easier to read in different lighting conditions.
+- Font Size Adjustment:
+  - A font size slider allows users to adjust the font size of the subtitles. This is handled by the `adjustFontSize()` function, which updates the `font-size` of the entire page based on the slider value.
+#3. Styling (CSS):
+  - The page has a default night mode appearance (dark background with light text), but users can toggle it to day mode (light background with dark text).
+  - The subtitles have a hover effect, changing background color when the mouse is over them (with different hover styles for day and night modes).
+  - The font size of the subtitles can be adjusted via the slider, giving users control over the subtitle visibility.
+Key Features:
+- Automatic Subtitle Playback: 
+  - When the user hovers over a subtitle, the media will automatically jump to the start time of that subtitle and play until the end time, at which point it stops.
+- Interactive and User-Friendly:
+  - The player is interactive, allowing users to adjust font size for readability and switch between day/night modes for better viewing depending on the environment.
+- Media and Subtitles Syncing:
+  - The subtitles are synchronized with the media, ensuring the right text is shown at the right time.
+How It Works in Practice:
+1. Load Media and Subtitles: When the page loads, it checks the current directory for matching media and subtitle files. For every pair of media and subtitle, it generates the HTML elements for playback and displays the subtitles.
+2. Hover to Play: When you hover over a subtitle, the corresponding media starts playing from the start time of that subtitle and stops after the duration (defined by the subtitle's end time).
+3. Day/Night Toggle: Users can switch between light and dark themes to suit different lighting conditions.
+4. Adjust Font Size: Users can adjust the font size of the subtitles through a slider, which updates the page's font size dynamically.
+Example Use Case:
+- You have a media file, say `movie.mp4`, and a corresponding subtitle file `movie.srt`. The page displays the video and all subtitles. As you hover over a subtitle (e.g., "Hello, world!"), the video jumps to the point where that subtitle appears and plays until the subtitle disappears, all without needing to click or manually scrub the timeline.
