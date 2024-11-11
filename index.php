@@ -1,6 +1,6 @@
 <?php
 // Directory containing the media files (.mp3, .mp4, etc.) and .srt files
-$directory = __DIR__; // current directory, or specify another path
+$directory = __DIR__;
 
 // Scan for media files and SRT files
 $mediaFiles = glob("$directory/*.{mp3,mp4,ogg,webm}", GLOB_BRACE);
@@ -11,10 +11,14 @@ $mediaPairs = [];
 foreach ($mediaFiles as $mediaFile) {
     $filename = pathinfo($mediaFile, PATHINFO_FILENAME);
     $subtitleFile = "$directory/$filename.srt";
+    $enSubtitleFile = "$directory/$filename.en.srt"; // English subtitle file
+
+    // Check if both subtitle files exist
     if (file_exists($subtitleFile)) {
         $mediaPairs[] = [
             'media' => basename($mediaFile),
-            'subtitle' => basename($subtitleFile),
+            'subtitle' => $subtitleFile,
+            'enSubtitle' => file_exists($enSubtitleFile) ? $enSubtitleFile : null, // Only include if exists
         ];
     }
 }
@@ -25,7 +29,7 @@ function timeToSeconds($time) {
     return $hours * 3600 + $minutes * 60 + $seconds + $milliseconds / 1000;
 }
 
-// Load subtitles from an .srt file
+// Load subtitles from an .srt file and convert them to a usable format
 function loadSubtitles($subtitleFilePath) {
     $subtitles = [];
     $file = fopen($subtitleFilePath, 'r');
@@ -54,145 +58,151 @@ function loadSubtitles($subtitleFilePath) {
     }
     return $subtitles;
 }
+
 ?>
 
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta http-equiv="refresh" content="1000" charset="UTF-8">
-	
+    <meta charset="UTF-8">
     <title>Media Player with Subtitles</title>
     <style>
-        :root {
-            --background-color: #1e1e1e; /* Default background for night mode */
-            --text-color: #ffffff; /* Default text color for night mode */
-            --highlight-color-day: #f0f0f0; /* Light grey for day mode */
-            --highlight-color-night: #444; /* Dark grey for night mode */
-        }
-
         body {
             font-family: Arial, sans-serif;
-            margin: 20px;
-            background-color: var(--background-color);
-            color: var(--text-color);
-            transition: background-color 0.3s, color 0.3s;
-        }
-
-        .media-container {
-            margin-bottom: 20px;
-        }
-
-        .subtitle {
-            cursor: pointer;
-            display: inline-block;
-            margin: 5px 0;
-            transition: background-color 0.3s;
-        }
-
-        .subtitle:hover {
-            background-color: var(--highlight-color-day); /* Default hover color */
-        }
-
-        /* Night mode hover style */
-        body.night-mode .subtitle:hover {
-            background-color: var(--highlight-color-night); /* Darker hover color in night mode */
-        }
-
-        .controls {
-            position: fixed;
-            top: 10px;
-            right: 20px;
+            background-color: #1e1e1e;
+            color: #ffffff;
+            overflow: hidden;
             display: flex;
-            align-items: center;
-            gap: 10px;
         }
-
-        .controls label {
-            margin-right: 5px;
-            font-size: 14px;
+        .content {
+            width: 65%;
+            padding: 20px;
+            overflow-y: auto;
+            max-height: 100vh;
+            border-right: 2px solid #444;
         }
-
-        .day-night-toggle {
+        .media-container {
+            margin-bottom: 40px;
+        }
+        .subtitle {
+            font-size: 1.2em;
+            margin-top: 10px;
+            color: #ffffff;
             cursor: pointer;
-            padding: 5px 10px;
-            background-color: #ddd;
-            border-radius: 5px;
-            border: 1px solid #ccc;
+            display: block;
         }
-
-        .font-size-slider {
-            width: 100px;
+        .subtitle:hover {
+            background-color: #444;
+        }
+        .video-box {
+            position: absolute;
+            right: 10px;
+            width: 30vw;
+            height: 30vh;
+            z-index: 1000;
+            background-color: black;
+            resize: both;
+            overflow: hidden;
+            border: 2px solid #444;
+            cursor: move;
+        }
+        .video-box video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
     </style>
 </head>
-<body class="night-mode"> <!-- Added night mode class -->
-    <div class="controls">
-        <span class="day-night-toggle" onclick="toggleDayNight()">Day/Night</span>
-        <label for="font-size-slider">Font Size:</label>
-        <input type="range" id="font-size-slider" class="font-size-slider" min="12" max="240" value="16" oninput="adjustFontSize(this.value)">
+<body>
+    <div class="content">
+        <h1>Media Player with Subtitles (Chrome & Opera users, click anywhere to start media playback. Firefox should auto-start playback on mouseover activity)</h1>
+
+        <?php if (empty($mediaPairs)): ?>
+            <p>No media-subtitle pairs found. Please ensure that media files and .srt files with matching names are present in the directory.</p>
+        <?php else: ?>
+            <?php foreach ($mediaPairs as $index => $pair): 
+                $mediaFilePath = $pair['media'];
+                $subtitles = loadSubtitles($pair['subtitle']);
+                $enSubtitles = $pair['enSubtitle'] ? loadSubtitles($pair['enSubtitle']) : null; // Check if English subtitles exist
+            ?>
+                <div class="media-container">
+                    <h2><?= htmlspecialchars(basename($mediaFilePath, pathinfo($mediaFilePath, PATHINFO_EXTENSION))) ?></h2>
+
+                    <div class="video-box" id="video-box-<?= $index ?>" style="top: <?= $index * 35 ?>vh;">
+                        <video id="media-<?= $index ?>" src="<?= htmlspecialchars($mediaFilePath) ?>" preload="auto" controls></video>
+                    </div>
+
+                    <div id="subtitles-<?= $index ?>" class="subtitle-display">
+                        <?php foreach ($subtitles as $subtitleIndex => $subtitle): 
+                            $enSubtitle = $enSubtitles[$subtitleIndex] ?? ['text' => 'No translation available']; // If no English subtitle, set default text
+                        ?>
+                            <span class="subtitle"
+                                  data-start="<?= $subtitle['start'] ?>"
+                                  data-end="<?= $subtitle['end'] ?>"
+                                  title="<?= htmlspecialchars($enSubtitle['text']) ?>"
+                                  onmouseover="playMediaAt(<?= $index ?>, <?= $subtitle['start'] ?>, <?= $subtitle['end'] ?>)"
+                                  onmouseout="stopMedia(<?= $index ?>)">
+                                <?= htmlspecialchars($subtitle['text']) ?>
+                            </span><br>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        <?php endif; ?>
     </div>
 
-    <h1>Media Player with Subtitles</h1>
-
-    <?php if (empty($mediaPairs)): ?>
-        <p>No media-subtitle pairs found. Please ensure that media files and .srt files with matching names are present in the directory.</p>
-    <?php else: ?>
-        <?php foreach ($mediaPairs as $pair): ?>
-            <?php
-            $mediaFilePath = $pair['media'];
-            $subtitleFilePath = $pair['subtitle'];
-            $subtitles = loadSubtitles($subtitleFilePath);
-            ?>
-
-            <div class="media-container">
-                <h2><?= htmlspecialchars(basename($mediaFilePath, pathinfo($mediaFilePath, PATHINFO_EXTENSION))) ?></h2>
-                <video id="media-<?= htmlspecialchars(basename($mediaFilePath, pathinfo($mediaFilePath, PATHINFO_EXTENSION))) ?>" src="<?= htmlspecialchars($mediaFilePath) ?>" preload="auto" controls></video>
-                <div id="subtitles-<?= htmlspecialchars(basename($mediaFilePath, pathinfo($mediaFilePath, PATHINFO_EXTENSION))) ?>">
-                    <?php foreach ($subtitles as $subtitle): ?>
-                        <span class="subtitle"
-                              data-start="<?= $subtitle['start'] ?>"
-                              data-end="<?= $subtitle['end'] ?>"
-                              onmouseover="playMediaAt('<?= htmlspecialchars(basename($mediaFilePath, pathinfo($mediaFilePath, PATHINFO_EXTENSION))) ?>', <?= $subtitle['start'] ?>, <?= $subtitle['end'] ?>)"
-                              onmouseout="stopMedia('<?= htmlspecialchars(basename($mediaFilePath, pathinfo($mediaFilePath, PATHINFO_EXTENSION))) ?>')">
-                            <?= htmlspecialchars($subtitle['text']) ?>
-                        </span><br>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-        <?php endforeach; ?>
-    <?php endif; ?>
-
     <script>
-        const timeouts = {};
+        let mediaTimeout;
 
-        function playMediaAt(mediaId, start, end) {
-            const media = document.getElementById(`media-${mediaId}`);
-            clearTimeout(timeouts[mediaId]);
+        function playMediaAt(index, start, end) {
+            const media = document.getElementById(`media-${index}`);
             media.currentTime = start;
             media.play();
 
-            const duration = (end - start) * 1000;
-            timeouts[mediaId] = setTimeout(() => {
+            clearTimeout(mediaTimeout);
+            mediaTimeout = setTimeout(() => {
                 media.pause();
-            }, duration);
+            }, (end - start) * 1000);
         }
 
-        function stopMedia(mediaId) {
-            clearTimeout(timeouts[mediaId]);
-            const media = document.getElementById(`media-${mediaId}`);
+        function stopMedia(index) {
+            const media = document.getElementById(`media-${index}`);
             media.pause();
+            clearTimeout(mediaTimeout);
         }
 
-        function toggleDayNight() {
-            document.body.classList.toggle('night-mode');
-            const isNightMode = document.body.classList.contains('night-mode');
-            document.body.style.setProperty('--background-color', isNightMode ? '#1e1e1e' : '#ffffff');
-            document.body.style.setProperty('--text-color', isNightMode ? '#ffffff' : '#000000');
-        }
+        // Draggable and resizable video boxes
+        document.querySelectorAll('.video-box').forEach((videoBox) => {
+            let isDragging = false;
+            let startX, startY, initialX, initialY;
 
-        function adjustFontSize(size) {
-            document.body.style.fontSize = size + 'px';
-        }
+            videoBox.addEventListener("mousedown", (e) => {
+                isDragging = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                initialX = videoBox.offsetLeft;
+                initialY = videoBox.offsetTop;
+                videoBox.style.cursor = "grabbing";
+            });
+
+            document.addEventListener("mousemove", (e) => {
+                if (isDragging) {
+                    let newLeft = initialX + e.clientX - startX;
+                    let newTop = initialY + e.clientY - startY;
+
+                    newLeft = Math.min(Math.max(0, newLeft), window.innerWidth - videoBox.offsetWidth);
+                    newTop = Math.min(Math.max(0, newTop), window.innerHeight - videoBox.offsetHeight);
+
+                    videoBox.style.left = newLeft + "px";
+                    videoBox.style.top = newTop + "px";
+                }
+            });
+
+            document.addEventListener("mouseup", () => {
+                isDragging = false;
+                videoBox.style.cursor = "move";
+            });
+        });
     </script>
 </body>
 </html>
